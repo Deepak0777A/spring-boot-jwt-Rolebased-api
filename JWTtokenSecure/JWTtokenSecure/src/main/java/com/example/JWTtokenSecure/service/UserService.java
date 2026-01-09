@@ -1,5 +1,7 @@
 package com.example.JWTtokenSecure.service;
 
+import com.example.JWTtokenSecure.DTO.LoginRequest;
+import com.example.JWTtokenSecure.DTO.RegisterRequest;
 import com.example.JWTtokenSecure.model.Users;
 import com.example.JWTtokenSecure.repo.UserRepo;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,23 +26,42 @@ public class UserService {
 
     private BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(12);
 
-    public Users register(Users user) {
-        user.setPassword(encoder.encode(user.getPassword()));
-        repo.save(user);
-        return user;
+    public Users register(RegisterRequest request) {
+
+        if (repo.existsByUsername(request.getUsername())) {
+            throw new RuntimeException("Username already exists");
+        }
+
+        Users user = new Users();
+        user.setUsername(request.getUsername());
+        user.setPassword(encoder.encode(request.getPassword()));
+        user.setRole(request.getRole());
+
+        return repo.save(user);
     }
 
-    public String verify(Users user) {
+
+
+    public String verify(LoginRequest request) {
+
         Authentication authentication =
                 authManager.authenticate(
                         new UsernamePasswordAuthenticationToken(
-                                user.getUsername(), user.getPassword()));
+                                request.getUsername(),
+                                request.getPassword()
+                        )
+                );
 
         if (authentication.isAuthenticated()) {
-            Users dbUser = repo.findByUsername(user.getUsername());
-            return jwtService.generateToken(dbUser.getUsername(), dbUser.getRole());
+            Users dbUser = repo.findByUsername(request.getUsername());
+            return jwtService.generateToken(
+                    dbUser.getUsername(),
+                    dbUser.getRole()
+            );
         }
-        return "fail";
+
+        throw new RuntimeException("Invalid username or password");
     }
+
 
 }
